@@ -25,7 +25,7 @@ async def draw_map(message: types.Message, pRadius: types.Message):
     await message.reply("Я начал генерировать Вашу карту")
     plot = prettymaps.plot(
         message.text[8:],
-        circle=True,
+        circle=False,
         radius=int(pRadius),
         layers={
             "green": {
