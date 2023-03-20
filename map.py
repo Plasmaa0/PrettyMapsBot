@@ -1,126 +1,95 @@
+import logging
+
+from aiogram import Bot, Dispatcher, executor, types
+from aiogram.dispatcher.filters import Text
+
+import keyboard
+
 import matplotlib.pyplot as plt
 import prettymaps
-import  logging
-from aiogram import Bot, Dispatcher, executor, types
 import time
 import random
 import datetime
 
 API_TOKEN = '5776852478:AAGmV-7refAgBdv7KH7-3jLjmphatpB7bZ4'
+
 logging.basicConfig(level=logging.INFO)
+
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
+
+user_preset = {}
+user_frame = {}
+user_radius = {}
+default_settings = {'barcelona', True, 1100}
+
+
+# Сделать кнопки для выбора пресета
+# Сделать возможность вводить координаты и радиус
+# Сделать ответ на неожиданное поведение
+# Сделать выбор рамочки
+
+
 @dp.message_handler(commands=['start'])
 async def sendhelp(message: types.Message):
-    await message.answer('Привет! Этот бот использует библиотеку (prettymaps)[https://github.com/marceloprates/prettymaps]. '
-                         'Ты можешь отправить координаты или название местности в виде "Volzhsky, Volgograd Oblast, Russia" и'
-                         'получить приятную картиночку этого места!'
-                         'Команды: '
-                         '/start - приветственное сообщение'
-                         '/drawmap - сгенерировать карту')
+    await message.answer(
+        'Привет! Этот бот использует библиотеку prettymaps.\n'
+        'Ты можешь отправить координаты или название местности через запятую на английском.'
+        'получить приятную картиночку этого места!\n\n'
+        'Команды: \n'
+        '/start         - приветственное сообщение \n'
+        '/configure_map - настроить и сгенерировать карту \n'
+        '/preset        - выбрать пресет \n'
+        '/radius        - выбрать радиус \n'
+        '/map           - быстрая генерация карты с дефолтными и/или сохраненными настройками'
+        '/frame         - выбрать рамку \n\n'
+        'prettymaps lib: https://github.com/marceloprates/prettymaps')
+
 
 @dp.message_handler(commands=['drawmap'])
-async def draw_map(message: types.Message, pRadius: types.Message):
-    await message.reply("Я начал генерировать Вашу карту")
+async def draw_map(message: types.Message):
+    await message.answer("Вы можете ответить на сообщения, чтобы настроить следующие параметры.")
+    await message.reply("Выберите пресет", reply_markup=keyboard.SELECT_PRESET)
+    await message.reply("Выберите рамку", reply_markup=keyboard.SELECT_FRAME)
+    await message.reply("Введите радиус (eg.: r_1100)")
+    await message.reply("Введите координаты места (eg: l_)")
+
+
+@dp.message_handler(lambda message: message.text.startswith('theme_'), commands=['preset'])
+async def preset(message: types.Message):
+    theme_name = message.text.split('_')[1]
+    user_preset[message.from_user.id] = theme_name
+
+
+@dp.message_handler(lambda message: message.text.startswith('frame_'), commands=['frame'])
+async def frame(message: types.Message):
+    frame_choice = message.text.split('_')[1]
+    user_frame[message.from_user.id] = True if (frame_choice == "circle") else False
+
+
+@dp.message_handler(lambda message: message.text.startswith('r_'))
+async def radius(message: types.Message):
+    user_radius[message.from_user.id] = int(message.text.split('_')[1])
+
+
+@dp.message_handler(lambda message: message.text.startswith('l_'))
+async def map(message: types.Message):
+    await message.answer("Карта генерируется...")
     plot = prettymaps.plot(
-        message.text[8:],
-        circle=False,
-        radius=int(pRadius),
-        layers={
-            "green": {
-                "tags": {
-                    "landuse": "grass",
-                    "natural": ["island", "wood"],
-                    "leisure": "park"
-                }
-            },
-            "forest": {
-                "tags": {
-                    "landuse": "forest"
-                }
-            },
-            "water": {
-                "tags": {
-                    "natural": ["water", "bay"]
-                }
-            },
-            "parking": {
-                "tags": {
-                    "amenity": "parking",
-                    "highway": "pedestrian",
-                    "man_made": "pier"
-                }
-            },
-            "streets": {
-                "width": {
-                    "motorway": 5,
-                    "trunk": 5,
-                    "primary": 4.5,
-                    "secondary": 4,
-                    "tertiary": 3.5,
-                    "residential": 3,
-                }
-            },
-            "building": {
-                "tags": {"building": True},
-            },
-        },
-        style={
-            "background": {
-                "fc": "#F2F4CB",
-                "ec": "#dadbc1",
-                "hatch": "ooo...",
-            },
-            "perimeter": {
-                "fc": "#F2F4CB",
-                "ec": "#dadbc1",
-                "lw": 0,
-                "hatch": "ooo...",
-            },
-            "green": {
-                "fc": "#D0F1BF",
-                "ec": "#2F3737",
-                "lw": 1,
-            },
-            "forest": {
-                "fc": "#64B96A",
-                "ec": "#2F3737",
-                "lw": 1,
-            },
-            "water": {
-                "fc": "#a1e3ff",
-                "ec": "#2F3737",
-                "hatch": "ooo...",
-                "hatch_c": "#85c9e6",
-                "lw": 1,
-            },
-            "parking": {
-                "fc": "#F2F4CB",
-                "ec": "#2F3737",
-                "lw": 1,
-            },
-            "streets": {
-                "fc": "#2F3737",
-                "ec": "#475657",
-                "alpha": 1,
-                "lw": 0,
-            },
-            "building": {
-                "palette": [
-                    "#FFC857",
-                    "#E9724C",
-                    "#C5283D"
-                ],
-                "ec": "#2F3737",
-                "lw": 0.5,
-            }
-        }
+        message.text.split('_')[1],
+        circle=user_frame[message.from_user.id] if (user_frame[message.from_user.id] is not None) else default_settings[
+            1],
+        radius=user_radius[message.from_user.id] if (user_frame[message.from_user.id] is not None) else
+        default_settings[2],
+        preset=user_preset[message.from_user.id] if (user_frame[message.from_user.id] is not None) else
+        default_settings[0],
     )
-    plt.savefig("Map.png")
+    plt.savefig(f"map_{message.from_user.id}.png")
+    await message.answer_photo(types.InputFile(f"map_{message.from_user.id}.png"))
 
-    await message.answer_photo(types.InputFile("Map.png"))
 
+# @dp.message_handler(commands=[''])
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
